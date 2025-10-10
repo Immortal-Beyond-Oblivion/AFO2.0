@@ -1,0 +1,25 @@
+# Core AI and Orchestration Framework
+langchain
+langchain-google-genai
+
+# File System Monitoring
+watchdog
+
+# Vector Store and Embeddings
+chromadb
+sentence-transformers
+
+# Document Content Extraction
+pypdf
+python-docx
+
+
+# Additional Libraries used during debugging
+google-generativeai
+
+# System tray icons
+pystray
+Pillow
+
+# Cross-platform directories for config files
+platformdirs

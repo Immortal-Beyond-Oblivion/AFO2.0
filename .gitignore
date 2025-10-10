@@ -1,0 +1,24 @@
+# Virtual Environment
+venv/
+*/venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# monitered_folder
+target_folder/
+
+
+# Configuration file with secrets if u work with config files in src
+# CRITICAL: This prevents your API key from being uploaded to GitHub
+config.py
+
+# Common environment variable file
+.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
