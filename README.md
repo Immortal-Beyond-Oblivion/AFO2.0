@@ -4,12 +4,6 @@ Most Intelligent Local File Organizer
 A small project that helps users select a folder where their unstructred files will be monitored, 
 sorted, renamed, moved in appropriately created and named directories as per the content inside it using Agentic AI RAG based LLM reasoning engine.
 
-# MILFO
-Most Intelligent Local File Organizer
-
-A small project that helps users select a folder where their unstructred files will be monitored, 
-sorted, renamed, moved in appropriately created and named directories as per the content inside it using Agentic AI RAG based LLM reasoning engine.
-
 ## ⚙️ Configuration
 
 Before running MILFO for the first time, you need to create a configuration file to store your Google Gemini API key. The application is designed to be secure and stores its settings in the standard user application data directory.
