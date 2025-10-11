@@ -1,6 +1,8 @@
 # Core AI and Orchestration Framework
 langchain
+langgraph
 langchain-google-genai
+google-generativeai
 
 # File System Monitoring
 watchdog
@@ -12,10 +14,6 @@ sentence-transformers
 # Document Content Extraction
 pypdf
 python-docx
-
-
-# Additional Libraries used during debugging
-google-generativeai
 
 # System tray icons
 pystray

@@ -1,68 +1,101 @@
-# components/agent_core.py
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import AgentExecutor, create_json_chat_agent
+import operator
+import os
+from typing import TypedDict, Annotated, Sequence
 
-from components.config_manager import load_settings
-from components.file_tools import move_and_rename_file
-from components.content_extractor import extract_content
+# --- CORE V1 IMPORTS ---
+from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# --- LANGGRAPH IMPORTS ---
+from langgraph.graph import StateGraph, END
+from langchain.agents.format_scratchpad.tools import format_to_tool_messages
+from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
+from langchain.agents import AgentExecutor
+
+# --- LOCAL IMPORTS ---
+from .config_manager import load_settings
+from .file_tools import move_and_rename_file
+from .content_extractor import extract_content
+from .retriever import retriever_instance
 
 # --- 1. Load settings and initialize LLM ---
 app_settings = load_settings()
 GOOGLE_API_KEY = app_settings.get("GOOGLE_API_KEY")
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0) if GOOGLE_API_KEY else None
 
-llm = None
-if GOOGLE_API_KEY:
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY)
-else:
-    print("⚠️ WARNING: Google API Key not found. Agent will not work.")
-
-# --- 2. Define the tools the agent can use ---
+# --- 2. Define Tools ---
 tools = [move_and_rename_file]
 
-# --- 3. Create the Agent Prompt ---
-prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a highly intelligent file organization agent.
-    Your goal is to analyze the content of a file and move it to an appropriate category folder with a descriptive name.
-    You have access to the following tools:
-    {tools}
-    
-    The names of the tools you can use are:
-    {tool_names}
-    1. First, analyze the content and decide on a category (e.g., 'Invoices', 'Resumes', 'Code', 'Images', 'Assignment', 'Finance', etc.).
-    2. Second, decide on a new, descriptive filename for the file, make sure title appropriately matches the file content (e.g., 'Resume_JohnDoe_2025.pdf').
-    3. Finally, use the `move_and_rename_file` tool to perform the action."""),
-    ("user", "Please organize the file located at `{source_path}` with the following content:\n\n--- CONTENT ---\n{file_content}\n--- END CONTENT ---"),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
+# --- 3. Define the State for our Graph ---
+# We will simplify the state for now to align with the agent's expectations
+class AgentState(TypedDict):
+    input: str
+    chat_history: Annotated[Sequence[BaseMessage], operator.add]
+    agent_outcome: list
+    intermediate_steps: Annotated[list[tuple], operator.add]
 
-# --- 4. Create the Agent and Executor ---
-agent = None
-agent_executor = None
+
+# --- 4. Define the Agent and Prompt ---
+# This prompt now correctly uses 'input' and 'agent_scratchpad'
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a highly intelligent file organization agent... (Your detailed prompt here, including {existing_folders})""",
+        ),
+        ("user", "{input}"),
+        MessagesPlaceholder(variable_name="agent_scratchpad"),
+    ]
+)
+
+# --- 5. Create the Agent ---
+# We bind the tools to the LLM and create a runnable agent chain
 if llm:
-    agent = create_json_chat_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+    llm_with_tools = llm.bind_tools(tools)
 
+    agent = (
+        {
+            "input": lambda x: x["input"],
+            "agent_scratchpad": lambda x: format_to_tool_messages(x["intermediate_steps"]),
+            "existing_folders": lambda x: x["existing_folders"], # Pass context to prompt
+        }
+        | prompt
+        | llm_with_tools
+        | ToolsAgentOutputParser()
+    )
+else:
+    agent = None
+
+# --- 6. Define Graph Nodes ---
+# We will use a simpler, non-graph AgentExecutor for now to resolve the issue,
+# as the manual graph setup was causing conflicts with the agent constructor.
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True) if agent else None
+
+
+# --- 7. The Main Processing Function ---
 def process_file_with_agent(file_path: str):
-    """
-    The main function for the agent core. It takes a file path,
-    extracts its content, and invokes the agent executor to organize it.
-    """
     if not agent_executor:
         print("Error: Agent is not configured (check API key). Cannot process file.")
         return
 
-    print(f"🧠 Agent is now processing: {file_path}")
-    
+    print(f"🧠 RAG Agent is now processing: {file_path}")
     content = extract_content(file_path)
-    
     if content:
         try:
-            # Invoke the agent. This starts the reasoning loop.
+            similar_folders = retriever_instance.find_similar_folders(content)
+            folder_context = ", ".join(similar_folders) if similar_folders else "No relevant folders found yet."
+            print(f"Found context from memory: {folder_context}")
+
+            user_input = f"Organize file named '{os.path.basename(file_path)}' at `{file_path}`. Content snippet: {content[:2000]}..."
+
+            # Invoke the agent executor
             result = agent_executor.invoke({
-                "file_content": content,
-                "source_path": file_path 
+                "input": user_input,
+                "existing_folders": folder_context,
             })
+            
             print(f"✅ Agent finished processing. Final output: {result.get('output')}")
+            
         except Exception as e:
             print(f"❌ An error occurred during agent execution: {e}")

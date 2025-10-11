@@ -2,9 +2,11 @@
 # Helper script to list available Gemini models for the provided API key
 # Run Independently to see which models you can use
 import google.generativeai as genai
-from config import GOOGLE_API_KEY
+from components.config_manager import load_settings
 
 # Configure the API key
+app_settings = load_settings()
+GOOGLE_API_KEY = app_settings.get("GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 print("Listing available Gemini models for your API key...")

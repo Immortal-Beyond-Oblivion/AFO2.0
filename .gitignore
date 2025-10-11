@@ -1,6 +1,9 @@
 # Virtual Environment
 venv/
 */venv/
+# uv based virtual environment
+.venv/
+*/.venv/
 
 # Python cache files
 __pycache__/

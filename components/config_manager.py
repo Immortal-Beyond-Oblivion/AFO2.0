@@ -4,7 +4,7 @@ import platformdirs
 
 # APP constants
 APP_NAME = "MILFO"
-APP_AUTHOR = "Amar"
+APP_AUTHOR = "MILFODevelopers"
 
 
 # Finding the correct config directory based on OS
