@@ -41,6 +41,7 @@ Before running MILFO for the first time, you need to create a configuration file
 
     * **`monitored_path`**: You can leave this as `null`. The application will prompt you to choose a folder via the system tray icon, and it will automatically save your choice here.
     * **`google_api_key`**: **This is required.** Replace `"YOUR_GEMINI_API_KEY_GOES_HERE"` with your actual API key from Google AI Studio. The agent will not work without a valid key.
+<<<<<<< HEAD
 
 
 ## 🚶 Walkthrough
@@ -51,3 +52,5 @@ Running the main.py script. In the app tray choose the folder you want to monito
 **As of now the software works only with text based pdfs**
 **🎯 Working on image based pdfs and image files next**
 
+=======
+>>>>>>> b32d2a726372fbccc2ae00e6f20090c722f4b87c
