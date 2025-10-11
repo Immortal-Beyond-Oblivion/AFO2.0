@@ -41,16 +41,18 @@ Before running MILFO for the first time, you need to create a configuration file
 
     * **`monitored_path`**: You can leave this as `null`. The application will prompt you to choose a folder via the system tray icon, and it will automatically save your choice here.
     * **`google_api_key`**: **This is required.** Replace `"YOUR_GEMINI_API_KEY_GOES_HERE"` with your actual API key from Google AI Studio. The agent will not work without a valid key.
-<<<<<<< HEAD
 
+🚶 Walkthrough
 
-## 🚶 Walkthrough
+Follow these steps to get MILFO up and running on your machine.
 
-Create & source a vir env and install the necessary packages
-Running the main.py script. In the app tray choose the folder you want to monitor (could be different from the primary folder you setup in config). Drop the file in the target_folder and watch the magic happen.
-**The first run might take a bit longer as it will install the embedding models and set up the local vector database**
-**As of now the software works only with text based pdfs**
-**🎯 Working on image based pdfs and image files next**
+    Set Up Environment:
+    Create a Python virtual environment and activate it. Then, install the necessary packages using the requirements.txt file:
 
-=======
->>>>>>> b32d2a726372fbccc2ae00e6f20090c722f4b87c
+    uv pip install -r requirements.txt
+
+    Launch the Application:
+    Run the main.py script from your terminal:
+
+    python main.py
+
