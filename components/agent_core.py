@@ -42,7 +42,7 @@ prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are a highly intelligent file organization agent... (Your detailed prompt here, including {existing_folders})""",
+            """You are a highly intelligent file organization agent. Your goal is to analyze a file's content and move it to the most appropriate existing category folder, or create a new one if necessary. Here is a list of existing folder categories you have used before: {existing_folders} """,
         ),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
