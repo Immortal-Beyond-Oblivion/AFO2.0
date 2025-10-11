@@ -41,18 +41,38 @@ Before running MILFO for the first time, you need to create a configuration file
 
     * **`monitored_path`**: You can leave this as `null`. The application will prompt you to choose a folder via the system tray icon, and it will automatically save your choice here.
     * **`google_api_key`**: **This is required.** Replace `"YOUR_GEMINI_API_KEY_GOES_HERE"` with your actual API key from Google AI Studio. The agent will not work without a valid key.
+---
 
-🚶 Walkthrough
+## 🚶 Walkthrough
 
 Follow these steps to get MILFO up and running on your machine.
 
-    Set Up Environment:
-    Create a Python virtual environment and activate it. Then, install the necessary packages using the requirements.txt file:
-
+1.  **Set Up Your Environment**
+    Create and activate a Python virtual environment, then install the necessary packages:
+    ```bash
     uv pip install -r requirements.txt
+    ```
 
-    Launch the Application:
-    Run the main.py script from your terminal:
+2.  **Configure the Application**
+    Before your first launch, ensure you have created your `settings.json` file with your Google Gemini API key as described in the Configuration section.
 
+3.  **Launch and Use**
+    Run the `main.py` script from your terminal to start the application.
+    ```bash
     python main.py
+    ```
+    * A MILFO icon will appear in your system tray (Windows) or menu bar (macOS).
+    * Click the icon and select **"Choose Monitored Folder..."** to tell the agent which directory to watch.
+    * Drop a file into the folder you selected and watch the terminal for the agent's activity!
 
+---
+
+## ⚠️ Important Notes
+
+Please be aware of the following points when using the current version of MILFO:
+
+* **First Run Delay:** Your first run will be noticeably slower. The application needs to download the local sentence-transformer model (approx. 90MB) that powers the RAG memory system. This is a **one-time download**, and all subsequent launches will be fast.
+
+* **Current Status:** The current version of MILFO is optimized for processing **text-based PDF (`.pdf`) and plain text (`.txt`) files**. It relies on extracting textual content to make its organizational decisions.
+
+* **🎯 Next Steps:** Our immediate development priority is to expand support to include **image files (`.png`, `.jpg`)** and to handle **scanned (image-based) PDFs**.
