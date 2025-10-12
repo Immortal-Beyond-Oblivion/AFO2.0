@@ -14,10 +14,11 @@ sentence-transformers
 # Document Content Extraction
 pypdf
 python-docx
+pdf2image
+Pillow
 
 # System tray icons
 pystray
-Pillow
 
 # Cross-platform directories for config files
 platformdirs

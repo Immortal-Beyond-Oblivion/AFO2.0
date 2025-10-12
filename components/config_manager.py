@@ -7,7 +7,6 @@ APP_NAME = "MILFO"
 APP_AUTHOR = "MILFODevelopers"
 
 
-# Finding the correct config directory based on OS
 config_dir = platformdirs.user_config_dir(APP_NAME, APP_AUTHOR)
 config_file_path = os.path.join(config_dir, "settings.json")
 

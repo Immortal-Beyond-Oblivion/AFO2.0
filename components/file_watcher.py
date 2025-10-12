@@ -32,7 +32,6 @@ class Watcher:
         print(f"👀 Watcher started on: {self.path_to_watch}")
         
         # The observer runs in its own thread, but this thread needs to be kept alive.
-        # We'll join it here, and the stop() method will break this loop.
         try:
             while self.observer.is_alive():
                 self.observer.join(1)

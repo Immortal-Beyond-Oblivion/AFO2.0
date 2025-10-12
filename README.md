@@ -73,6 +73,13 @@ Please be aware of the following points when using the current version of MILFO:
 
 * **First Run Delay:** Your first run will be noticeably slower. The application needs to download the local sentence-transformer model (approx. 90MB) that powers the RAG memory system. This is a **one-time download**, and all subsequent launches will be fast.
 
-* **Current Status:** The current version of MILFO is optimized for processing **text-based PDF (`.pdf`) and plain text (`.txt`) files**. It relies on extracting textual content to make its organizational decisions.
+* **Current Status:** The current version of MILFO supports a variety of file types:
+    * **Text-based files** (`.txt`, text-heavy `.pdf`)
+    * **Common image formats** (`.png`, `.jpg`, `.jpeg`)
+    * **Scanned (image-based) PDFs**.
+    * Please note that full support for scanned PDFs is currently configured for **macOS only** due to the bundled `poppler` dependency.
 
-* **🎯 Next Steps:** Our immediate development priority is to expand support to include **image files (`.png`, `.jpg`)** and to handle **scanned (image-based) PDFs**.
+* **🎯 Next Steps:** Our immediate development priorities are:
+    * Bundling the necessary dependencies to enable full image and scanned PDF support on **Windows and Linux**.
+    * Exploring support for new file types, such as **video files (`.mp4`, `.mov`)**, by analyzing their metadata and content.
+
