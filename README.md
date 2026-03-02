@@ -6,29 +6,29 @@ sorted, renamed, moved in appropriately created and named directories as per the
 
 ## ⚙️ Configuration
 
-Before running MILFO for the first time, you need to create a configuration file to store your Google Gemini API key. The application is designed to be secure and stores its settings in the standard user application data directory.
+Before running AFO for the first time, you need to create a configuration file to store your Google Gemini API key. The application is designed to be secure and stores its settings in the standard user application data directory.
 
 ### First-Time Setup Instructions
 
 1.  **Locate (or Create) the Application Data Directory**
 
-    You will need to create a `settings.json` file in the following location, specific to your operating system. You may need to create the parent folders (`MILFODevelopers` and `MILFO`) yourself if they don't exist.
+    You will need to create a `settings.json` file in the following location, specific to your operating system. You may need to create the parent folders (`AFODevelopers` and `AFO`) yourself if they don't exist.
 
     * **Windows:**
-        `C:\Users\<YourUsername>\AppData\Local\MILFODevelopers\MILFO\`
+        `C:\Users\<YourUsername>\AppData\Local\AFODevelopers\AFO\`
         *(Note: The `AppData` folder is hidden by default.)*
 
     * **macOS:**
-        `~/Library/Application Support/MILFO/`
+        `~/Library/Application Support/AFO/`
         *(Note: The `~` character represents your home directory. On macOS, the author name is typically not used in the path structure, so the folder is directly under Application Support.)*
 
     * **Linux:**
-        `~/.local/share/MILFODevelopers/MILFO/`
+        `~/.local/share/AFODevelopers/AFO/`
         *(Note: The `~` character represents your home directory. The `.local` folder is hidden.)*
 
 2.  **Create and Edit `settings.json`**
 
-    Inside the `MILFO` directory, create a new file named `settings.json`. Open the file with any text editor and paste the following content:
+    Inside the `AFO` directory, create a new file named `settings.json`. Open the file with any text editor and paste the following content:
 
     ```json
     {
@@ -45,7 +45,7 @@ Before running MILFO for the first time, you need to create a configuration file
 
 ## 🚶 Walkthrough
 
-Follow these steps to get MILFO up and running on your machine.
+Follow these steps to get AFO up and running on your machine.
 
 1.  **Set Up Your Environment**
     Create and activate a Python virtual environment, then install the necessary packages:
@@ -61,7 +61,7 @@ Follow these steps to get MILFO up and running on your machine.
     ```bash
     python main.py
     ```
-    * A MILFO icon will appear in your system tray (Windows) or menu bar (macOS).
+    * A AFO icon will appear in your system tray (Windows) or menu bar (macOS).
     * Click the icon and select **"Choose Monitored Folder..."** to tell the agent which directory to watch.
     * Drop a file into the folder you selected and watch the terminal for the agent's activity!
 
@@ -69,11 +69,11 @@ Follow these steps to get MILFO up and running on your machine.
 
 ## ⚠️ Important Notes
 
-Please be aware of the following points when using the current version of MILFO:
+Please be aware of the following points when using the current version of AFO:
 
 * **First Run Delay:** Your first run will be noticeably slower. The application needs to download the local sentence-transformer model (approx. 90MB) that powers the RAG memory system. This is a **one-time download**, and all subsequent launches will be fast.
 
-* **Current Status:** The current version of MILFO supports a variety of file types:
+* **Current Status:** The current version of AFO supports a variety of file types:
     * **Text-based files** (`.txt`, text-heavy `.pdf`)
     * **Common image formats** (`.png`, `.jpg`, `.jpeg`)
     * **Scanned (image-based) PDFs**.
