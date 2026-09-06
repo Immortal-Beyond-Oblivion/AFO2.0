@@ -5,6 +5,7 @@ import shutil
 from langchain.tools import tool
 from .retriever import Retriever
 from .retriever import retriever_instance
+from .events_log import log_event
 
 # --- T010: path/filename sanitization ---
 # destination_category and new_filename below come straight from LLM tool-call
@@ -185,6 +186,20 @@ def move_and_rename_file(source_path: str, destination_category: str, new_filena
             return f"Error: refused to move file due to a naming collision ({e})"
 
         shutil.move(source_path, final_destination_path)
+
+        # T012: log every successful move/rename to the append-only events
+        # table (architecture.md §2.1) so there is an audit trail of what
+        # happened to a user's files, and so T013's undo has something to
+        # reverse. Only successful moves are logged here - refusals (bad
+        # sanitization, containment escape, exhausted collision attempts)
+        # are surfaced to the caller as error strings above but intentionally
+        # not logged as events, since no filesystem change occurred for them.
+        log_event(
+            event_type="moved",
+            from_path=source_path,
+            to_path=final_destination_path,
+            actor="agent",
+        )
 
         if final_destination_path != destination_path:
             return (
