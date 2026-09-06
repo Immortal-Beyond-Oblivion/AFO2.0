@@ -6,7 +6,11 @@ sorted, renamed, moved in appropriately created and named directories as per the
 
 ## ⚙️ Configuration
 
-Before running AFO for the first time, you need to create a configuration file to store your Google Gemini API key. The application is designed to be secure and stores its settings in the standard user application data directory.
+Before running AFO for the first time, you need to create a configuration file to store your LLM provider's API key. The application is designed to be secure and stores its settings in the standard user application data directory.
+
+AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, and **Grok (xAI)** — plus an optional **local/offline model** (e.g. via Ollama), selected via a single `active_provider` field. You only need to fill in the API key for the provider you intend to use.
+
+> **Note:** As of this writing, provider selection is wired through the config layer, but the agent pipeline itself still only executes against Google Gemini under the hood (see `implementation.md` T005–T009 for the in-progress work to make every configured provider actually usable end-to-end). If you configure a non-Google provider today, the app will still fall back to expecting a Google key until that work lands.
 
 ### First-Time Setup Instructions
 
@@ -33,14 +37,25 @@ Before running AFO for the first time, you need to create a configuration file t
     ```json
     {
         "monitored_path": null,
-        "google_api_key": "YOUR_GEMINI_API_KEY_GOES_HERE"
+        "active_provider": "google",
+        "providers": {
+            "google":    { "api_key": "YOUR_GEMINI_API_KEY_GOES_HERE" },
+            "anthropic": { "api_key": null },
+            "openai":    { "api_key": null },
+            "grok":      { "api_key": null },
+            "local":     { "enabled": false, "model": null }
+        }
     }
     ```
 
 3.  **Update the File Contents**
 
     * **`monitored_path`**: You can leave this as `null`. The application will prompt you to choose a folder via the system tray icon, and it will automatically save your choice here.
-    * **`google_api_key`**: **This is required.** Replace `"YOUR_GEMINI_API_KEY_GOES_HERE"` with your actual API key from Google AI Studio. The agent will not work without a valid key.
+    * **`active_provider`**: Set this to the provider you want the agent to use — one of `"google"`, `"anthropic"`, `"openai"`, `"grok"`, or `"local"`. Defaults to `"google"`.
+    * **`providers.<name>.api_key`**: Fill in the API key for whichever provider you selected above (e.g. `providers.google.api_key` for a Google AI Studio key). Keys for providers you aren't using can be left as `null`.
+    * **`providers.local.enabled`** / **`providers.local.model`**: For a local/offline model instead of a cloud provider, set `enabled` to `true` and `model` to your local model's identifier (e.g. an Ollama tag). See the full schema reference in [`docs/config_schema.md`](docs/config_schema.md) for details.
+
+    If you have an existing `settings.json` from an older version of AFO (using the old flat `google_api_key` field), you don't need to migrate it by hand — the app detects and automatically upgrades it to this new schema the first time it loads.
 ---
 
 ## 🚶 Walkthrough
@@ -54,7 +69,7 @@ Follow these steps to get AFO up and running on your machine.
     ```
 
 2.  **Configure the Application**
-    Before your first launch, ensure you have created your `settings.json` file with your Google Gemini API key as described in the Configuration section.
+    Before your first launch, ensure you have created your `settings.json` file with your chosen provider's API key (or local-model settings) as described in the Configuration section.
 
 3.  **Launch and Use**
     Run the `main.py` script from your terminal to start the application.
