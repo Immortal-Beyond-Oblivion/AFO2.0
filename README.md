@@ -12,6 +12,8 @@ AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, a
 
 > **Note:** As of `implementation.md` T009, all five providers listed above (`google`, `anthropic`, `openai`, `grok`, `local`) are fully wired end-to-end through `llm/provider.py` — whichever one you set as `active_provider` is the one the agent actually uses, no fallback to Google.
 
+> **Note:** As of `implementation.md` T014, API keys are **not** stored in `settings.json` anymore. They live in your OS's keychain (via the `keyring` package), with an environment-variable override checked first. See ["Setting Your API Key"](#setting-your-api-key) below.
+
 ### First-Time Setup Instructions
 
 1.  **Locate (or Create) the Application Data Directory**
@@ -39,7 +41,7 @@ AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, a
         "monitored_path": null,
         "active_provider": "google",
         "providers": {
-            "google":    { "api_key": "YOUR_GEMINI_API_KEY_GOES_HERE" },
+            "google":    { "api_key": null },
             "anthropic": { "api_key": null },
             "openai":    { "api_key": null },
             "grok":      { "api_key": null },
@@ -48,14 +50,35 @@ AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, a
     }
     ```
 
+    Note that the `api_key` fields all stay `null` here — as of T014, this file is never where your actual key lives. See step 4 below.
+
 3.  **Update the File Contents**
 
     * **`monitored_path`**: You can leave this as `null`. The application will prompt you to choose a folder via the system tray icon, and it will automatically save your choice here.
     * **`active_provider`**: Set this to the provider you want the agent to use — one of `"google"`, `"anthropic"`, `"openai"`, `"grok"`, or `"local"`. Defaults to `"google"`.
-    * **`providers.<name>.api_key`**: Fill in the API key for whichever provider you selected above (e.g. `providers.google.api_key` for a Google AI Studio key). Keys for providers you aren't using can be left as `null`.
+    * **`providers.<name>.api_key`**: Leave this as `null` for every provider — it's a legacy field kept only so old settings files still parse. Your real key goes into the OS keychain or an environment variable instead (step 4).
     * **`providers.local.enabled`** / **`providers.local.model`**: For a local/offline model instead of a cloud provider, set `enabled` to `true` and `model` to your local model's identifier (e.g. an Ollama tag). See the full schema reference in [`docs/config_schema.md`](docs/config_schema.md) for details.
 
-    If you have an existing `settings.json` from an older version of AFO (using the old flat `google_api_key` field), you don't need to migrate it by hand — the app detects and automatically upgrades it to this new schema the first time it loads.
+    If you have an existing `settings.json` from an older version of AFO (using the old flat `google_api_key` field, or the T003-era schema with a real key sitting in `providers.<name>.api_key`), you don't need to migrate it by hand — the app detects it automatically, moves the key into your OS keychain, and rewrites the file with that field cleared, the first time it loads.
+
+4.  **Set Your API Key** <a name="setting-your-api-key"></a>
+
+    Pick whichever of these is more convenient for you:
+
+    * **Environment variable (simplest, and always wins if both are set):** set `AFO_<PROVIDER>_API_KEY` before running AFO, e.g.:
+        ```bash
+        export AFO_GOOGLE_API_KEY="your-gemini-key-here"
+        python main.py
+        ```
+        (Use `AFO_OPENAI_API_KEY`, `AFO_ANTHROPIC_API_KEY`, or `AFO_GROK_API_KEY` for the other providers.)
+
+    * **OS keychain (persists across runs without re-exporting an env var):** run a one-line Python snippet once, using the same `keyring` package AFO already depends on:
+        ```bash
+        python -c "import keyring; keyring.set_password('AFO', 'google_api_key', 'your-gemini-key-here')"
+        ```
+        Swap `google_api_key` for `openai_api_key`, `anthropic_api_key`, or `grok_api_key` to match the provider you're using. There's no in-app UI for this yet (a real settings screen is planned — see `implementation.md` Phase 4); this snippet is the current recommended way to seed a key.
+
+    A local/offline model (`active_provider: "local"`) needs neither of the above — see the next section.
 
 ### Using a Local / Offline Model (Ollama)
 

@@ -27,3 +27,6 @@ pystray
 
 # Cross-platform directories for config files
 platformdirs
+
+# OS keychain integration for API key storage (T014)
+keyring

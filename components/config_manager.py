@@ -2,6 +2,7 @@ import os
 import json
 import platformdirs
 from constants import APP_NAME, APP_AUTHOR
+from components import secrets_manager
 
 
 config_dir = platformdirs.user_config_dir(APP_NAME, APP_AUTHOR)
@@ -64,6 +65,14 @@ def load_settings():
     already in the new schema, any provider missing from it (e.g. one added in a
     later task) is back-filled with its default so callers can always safely do
     settings["providers"]["<name>"] without a KeyError.
+
+    T014: after the schema is settled (new-schema-as-is, or freshly migrated
+    from the old flat shape above), any plaintext API keys still sitting in
+    `providers.<name>.api_key` are moved into the OS keychain via
+    secrets_manager.migrate_plaintext_keys() and cleared from the dict, so a
+    plaintext key never survives more than one load. The actual key values
+    callers should use for API calls come from secrets_manager.get_api_key(),
+    not from this dict - see llm/provider.py.
     """
     if not os.path.exists(config_file_path):
         return _default_settings()
@@ -75,6 +84,8 @@ def load_settings():
         print("Error reading config file. Using default settings.")
         return _default_settings()
 
+    needs_save = False
+
     if _is_new_schema(raw):
         defaults = _default_settings()
         raw.setdefault("providers", {})
@@ -82,12 +93,19 @@ def load_settings():
             raw["providers"].setdefault(provider, provider_defaults)
         raw.setdefault("active_provider", defaults["active_provider"])
         raw.setdefault("monitored_path", None)
-        return raw
+        settings = raw
+    else:
+        print("Detected pre-multi-provider settings.json - migrating to the new schema (T003).")
+        settings = _migrate_legacy_settings(raw)
+        needs_save = True
 
-    print("Detected pre-multi-provider settings.json - migrating to the new schema (T003).")
-    migrated = _migrate_legacy_settings(raw)
-    save_settings(migrated)
-    return migrated
+    if secrets_manager.migrate_plaintext_keys(settings):
+        needs_save = True
+
+    if needs_save:
+        save_settings(settings)
+
+    return settings
 
 
 def save_settings(settings):

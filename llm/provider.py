@@ -14,13 +14,23 @@ already relies on.
 Scope for T005 was a refactor only: migrate the existing Google Gemini path
 behind this interface. T006 added the second backend - OpenAI - following
 the same shape. T007 added the third - Anthropic - again following the same
-shape. T008 added the fourth - Grok (xAI) - same shape again. T009 (this
-update) adds the fifth and final Phase-0 backend - a local/offline model via
-Ollama - which never makes a network call to any cloud provider (it only
-ever talks to a local Ollama server on localhost). With T009 done, every
-provider listed in the settings schema (docs/config_schema.md) is now wired
-up: google, anthropic, openai, grok, local.
+shape. T008 added the fourth - Grok (xAI) - same shape again. T009 adds the
+fifth and final Phase-0 backend - a local/offline model via Ollama - which
+never makes a network call to any cloud provider (it only ever talks to a
+local Ollama server on localhost). With T009 done, every provider listed
+in the settings schema (docs/config_schema.md) is wired up: google,
+anthropic, openai, grok, local.
+
+T014 changes *where this module gets its API keys from*: it now calls
+components.secrets_manager.get_api_key(provider) (env var override, then OS
+keychain) instead of reading providers.<name>.api_key straight off the
+settings dict. settings.json no longer holds cleartext keys once
+config_manager.load_settings() has run its T014 migration once - see
+components/secrets_manager.py. The `settings` dict is still consulted for
+everything that isn't a secret (active_provider, providers.local.enabled/
+model), so this module's public signature (get_llm(settings)) is unchanged.
 """
+from components import secrets_manager
 
 # Same Gemini model name agent_core.py was already hard-coding.
 GEMINI_MODEL = "gemini-3.5-flash"
@@ -67,7 +77,10 @@ def get_llm(settings):
     providers = settings.get("providers", {})
 
     if active_provider == "google":
-        api_key = providers.get("google", {}).get("api_key")
+        # T014: key comes from the OS keychain (or an env var override),
+        # not from settings["providers"]["google"]["api_key"] - that field
+        # is now always None once config_manager's T014 migration has run.
+        api_key = secrets_manager.get_api_key("google")
         if not api_key:
             return None
         # Imported lazily so importing this module never requires the
@@ -82,7 +95,7 @@ def get_llm(settings):
         )
 
     if active_provider == "anthropic":
-        api_key = providers.get("anthropic", {}).get("api_key")
+        api_key = secrets_manager.get_api_key("anthropic")  # T014: keychain/env, not settings.json
         if not api_key:
             return None
         # Imported lazily, same reasoning as the google/openai branches above:
@@ -96,7 +109,7 @@ def get_llm(settings):
         )
 
     if active_provider == "openai":
-        api_key = providers.get("openai", {}).get("api_key")
+        api_key = secrets_manager.get_api_key("openai")  # T014: keychain/env, not settings.json
         if not api_key:
             return None
         # Imported lazily, same reasoning as the google branch above: don't
@@ -110,7 +123,7 @@ def get_llm(settings):
         )
 
     if active_provider == "grok":
-        api_key = providers.get("grok", {}).get("api_key")
+        api_key = secrets_manager.get_api_key("grok")  # T014: keychain/env, not settings.json
         if not api_key:
             return None
         # Imported lazily, same reasoning as the google/openai/anthropic
