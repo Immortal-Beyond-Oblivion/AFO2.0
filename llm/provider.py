@@ -12,21 +12,26 @@ supporting the same `.bind_tools()` / `.invoke()` interface agent_core.py
 already relies on.
 
 Scope for T005 was a refactor only: migrate the existing Google Gemini path
-behind this interface. T006 (this update) adds the first new backend -
-OpenAI - following the same shape. Anthropic, Grok, and the local/offline
-model are still T007-T009 and still raise a clear NotImplementedError rather
-than silently returning None, so a user who picks one of those as
-`active_provider` today gets an honest error instead of a mysteriously
-"unconfigured" agent.
+behind this interface. T006 added the second backend - OpenAI - following
+the same shape. T007 (this update) adds the third - Anthropic - again
+following the same shape. Grok and the local/offline model are still
+T008-T009 and still raise a clear NotImplementedError rather than silently
+returning None, so a user who picks one of those as `active_provider` today
+gets an honest error instead of a mysteriously "unconfigured" agent.
 """
 
 # Same Gemini model name agent_core.py was already hard-coding.
 GEMINI_MODEL = "gemini-3.5-flash"
 
-# Default OpenAI chat model for the new T006 backend. Chosen as a small,
+# Default OpenAI chat model for the T006 backend. Chosen as a small,
 # tool-calling-capable, currently-supported model - not hard-coded anywhere
 # else in the repo yet, so this is the single source of truth for it.
 OPENAI_MODEL = "gpt-4o-mini"
+
+# Default Anthropic chat model for the new T007 backend. Chosen as a small,
+# fast, tool-calling-capable, currently-supported model - same reasoning as
+# OPENAI_MODEL above, and likewise not hard-coded anywhere else in the repo.
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 
 def get_llm(settings):
@@ -41,7 +46,7 @@ def get_llm(settings):
 
     Raises:
         NotImplementedError: `active_provider` is a recognized provider that
-            isn't implemented yet (anthropic/openai/grok/local - T006-T009).
+            isn't implemented yet (grok/local - T008-T009).
         ValueError: `active_provider` isn't a recognized provider name at all.
     """
     active_provider = settings.get("active_provider", "google")
@@ -63,9 +68,17 @@ def get_llm(settings):
         )
 
     if active_provider == "anthropic":
-        raise NotImplementedError(
-            "active_provider is 'anthropic', but the Anthropic backend isn't "
-            "implemented yet - see implementation.md T007."
+        api_key = providers.get("anthropic", {}).get("api_key")
+        if not api_key:
+            return None
+        # Imported lazily, same reasoning as the google/openai branches above:
+        # don't require langchain_anthropic to be installed unless this
+        # backend is actually selected.
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=ANTHROPIC_MODEL,
+            api_key=api_key,
+            temperature=0,
         )
 
     if active_provider == "openai":
