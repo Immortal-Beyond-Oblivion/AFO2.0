@@ -1,10 +1,7 @@
 import os
 import json
 import platformdirs
-
-# APP constants
-APP_NAME = "AFO"
-APP_AUTHOR = "AFODevelopers"
+from constants import APP_NAME, APP_AUTHOR
 
 
 config_dir = platformdirs.user_config_dir(APP_NAME, APP_AUTHOR)
