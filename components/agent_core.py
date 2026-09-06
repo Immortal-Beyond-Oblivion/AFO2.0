@@ -6,7 +6,6 @@ from typing import TypedDict, Annotated, Sequence
 # --- CORE V1 IMPORTS ---
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 # --- LANGGRAPH IMPORTS ---
 from langgraph.graph import StateGraph, END
@@ -23,11 +22,17 @@ from .config_manager import load_settings
 from .file_tools import move_and_rename_file
 from .content_extractor import extract_content
 from .retriever import retriever_instance
+from llm.provider import get_llm
 
 # --- 1. Load settings and initialize LLM ---
+# T005: LLM construction now goes through the provider-neutral llm/provider.py
+# instead of building ChatGoogleGenerativeAI directly off the old flat
+# GOOGLE_API_KEY key. get_llm() reads the new multi-provider schema from T003
+# (settings["active_provider"] / settings["providers"][...]) - see
+# docs/config_schema.md. This is what actually resolves the "agent reports
+# unconfigured" regression introduced by T003.
 app_settings = load_settings()
-GOOGLE_API_KEY = app_settings.get("GOOGLE_API_KEY")
-llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0) if GOOGLE_API_KEY else None
+llm = get_llm(app_settings)
 
 # --- 2. Define Tools ---
 tools = [move_and_rename_file]
