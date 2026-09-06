@@ -6,6 +6,7 @@ langchain-google-genai
 google-generativeai
 langchain-openai  # OpenAI backend for llm/provider.py (T006)
 langchain-anthropic  # Anthropic backend for llm/provider.py (T007)
+langchain-xai  # Grok (xAI) backend for llm/provider.py (T008)
 
 # File System Monitoring
 watchdog
