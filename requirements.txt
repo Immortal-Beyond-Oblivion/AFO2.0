@@ -4,6 +4,7 @@ langchain-classic  # required since LangChain v1.0: AgentExecutor / format_scrat
 langgraph
 langchain-google-genai
 google-generativeai
+langchain-openai  # OpenAI backend for llm/provider.py (T006)
 
 # File System Monitoring
 watchdog
