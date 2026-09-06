@@ -7,7 +7,7 @@ from constants import APP_NAME, APP_AUTHOR
 
 # Setup persistent storage for ChromaDB using constants
 DATA_DIR = platformdirs.user_data_dir(APP_NAME, APP_AUTHOR)
-DB_PATH = os.path.join(DATA_DIR, "milfo_vectordb")
+DB_PATH = os.path.join(DATA_DIR, "afo_vectordb")
 
 class Retriever:
     def __init__(self):

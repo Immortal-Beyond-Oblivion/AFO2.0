@@ -10,9 +10,13 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 # --- LANGGRAPH IMPORTS ---
 from langgraph.graph import StateGraph, END
-from langchain.agents.format_scratchpad.tools import format_to_tool_messages
-from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
-from langchain.agents import AgentExecutor
+# NOTE: as of LangChain v1.0, AgentExecutor / format_scratchpad / the tools output parser
+# were moved out of the `langchain` package into the separate `langchain-classic` package
+# (pip install langchain-classic). The old `langchain.agents...` import paths below no longer
+# exist and raise ModuleNotFoundError on current langchain versions.
+from langchain_classic.agents.format_scratchpad.tools import format_to_tool_messages
+from langchain_classic.agents.output_parsers.tools import ToolsAgentOutputParser
+from langchain_classic.agents import AgentExecutor
 
 # --- LOCAL IMPORTS ---
 from .config_manager import load_settings
@@ -23,7 +27,7 @@ from .retriever import retriever_instance
 # --- 1. Load settings and initialize LLM ---
 app_settings = load_settings()
 GOOGLE_API_KEY = app_settings.get("GOOGLE_API_KEY")
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0) if GOOGLE_API_KEY else None
+llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0) if GOOGLE_API_KEY else None
 
 # --- 2. Define Tools ---
 tools = [move_and_rename_file]

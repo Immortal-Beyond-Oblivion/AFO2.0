@@ -1,5 +1,6 @@
 # Core AI and Orchestration Framework
 langchain
+langchain-classic  # required since LangChain v1.0: AgentExecutor / format_scratchpad / tools output parser moved here
 langgraph
 langchain-google-genai
 google-generativeai

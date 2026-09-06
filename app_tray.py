@@ -62,7 +62,7 @@ def agent_worker(queue):
     print("Agent worker thread stopped cleanly.")
 
 
-class MilfoApp:
+class AfoApp:
     def __init__(self):
         self.settings = load_settings()
         self.monitored_path = self.settings.get("monitored_path")
@@ -78,7 +78,7 @@ class MilfoApp:
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Quit', self.on_quit)
         )
-        self.icon = pystray.Icon("MILFO", image, "MILFO File Organizer", menu)
+        self.icon = pystray.Icon("AFO", image, "AFO File Organizer", menu)
 
     def start_watcher_thread(self):
         """Creates and starts a new watcher thread."""
@@ -113,7 +113,7 @@ class MilfoApp:
             # 3. Start a new watcher with the new path
             self.start_watcher_thread()
             
-            self.icon.notify(f"Now watching: {os.path.basename(new_path)}", title="MILFO")
+            self.icon.notify(f"Now watching: {os.path.basename(new_path)}", title="AFO")
 
     def on_quit(self, icon, item):
         """Callback for the 'Quit' menu item."""
@@ -133,7 +133,7 @@ class MilfoApp:
         agent_thread = threading.Thread(target =agent_worker, args=(self.file_queue,), daemon=True)
         agent_thread.start()
 
-        print("🚀 MILFO is running in the system tray.")
+        print("🚀 AFO is running in the system tray.")
         self.icon.run()
 
 
@@ -150,5 +150,5 @@ class MilfoApp:
 
 # --- Main Execution ---
 def create_tray_icon():
-    app = MilfoApp()
+    app = AfoApp()
     app.run()

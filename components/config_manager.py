@@ -3,8 +3,8 @@ import json
 import platformdirs
 
 # APP constants
-APP_NAME = "MILFO"
-APP_AUTHOR = "MILFODevelopers"
+APP_NAME = "AFO"
+APP_AUTHOR = "AFODevelopers"
 
 
 config_dir = platformdirs.user_config_dir(APP_NAME, APP_AUTHOR)
