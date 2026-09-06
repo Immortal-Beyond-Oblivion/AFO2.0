@@ -1,8 +1,12 @@
 # AFO
 Autonomous RAG-Powered File Organizer
 
-A small project that helps users select a folder where their unstructred files will be monitored, 
-sorted, renamed, moved in appropriately created and named directories as per the content inside it using Agentic AI RAG based LLM reasoning engine.
+*Licensed under [Apache 2.0](LICENSE).*
+
+A small project that helps users select a folder where their unstructured files will be monitored,
+sorted, renamed, and moved into appropriately created and named directories based on the content inside them, using an agentic, RAG-based LLM reasoning engine.
+
+Every move AFO makes is logged to a local audit trail and can be reversed with one click from the tray menu — see [🛡️ Safety & Undo](#️-safety--undo) below.
 
 ## ⚙️ Configuration
 
@@ -101,7 +105,7 @@ If you'd rather not send file contents to any cloud provider, AFO can run entire
     Both `enabled: true` and a matching `model` tag are required — if either is missing, AFO treats the agent as unconfigured rather than guessing.
 4.  **Install the local-model dependency** (included in `requirements.txt` as of T009):
     ```bash
-    uv pip install -r requirements.txt
+    pip install -r requirements.txt
     ```
 5.  Run AFO as usual (`python main.py`). All reasoning now happens against your local Ollama server — no API key required, and no file content leaves your machine.
 
@@ -114,8 +118,9 @@ Follow these steps to get AFO up and running on your machine.
 1.  **Set Up Your Environment**
     Create and activate a Python virtual environment, then install the necessary packages:
     ```bash
-    uv pip install -r requirements.txt
+    pip install -r requirements.txt
     ```
+    (If you use [`uv`](https://github.com/astral-sh/uv), `uv pip install -r requirements.txt` works too.)
 
 2.  **Configure the Application**
     Before your first launch, ensure you have created your `settings.json` file with your chosen provider's API key (or local-model settings) as described in the Configuration section.
@@ -125,9 +130,23 @@ Follow these steps to get AFO up and running on your machine.
     ```bash
     python main.py
     ```
-    * A AFO icon will appear in your system tray (Windows) or menu bar (macOS).
+    * An AFO icon will appear in your system tray (Windows) or menu bar (macOS).
     * Click the icon and select **"Choose Monitored Folder..."** to tell the agent which directory to watch.
     * Drop a file into the folder you selected and watch the terminal for the agent's activity!
+    * If a file ever gets filed somewhere you didn't want, click the tray icon and select **"Undo Last Action"** to reverse the most recent move. See the next section for details.
+
+---
+
+## 🛡️ Safety & Undo
+
+AFO is designed to run unattended on your personal files, so a few safety nets are built in:
+
+* **No silent overwrites.** If the agent's chosen destination filename already exists, AFO automatically suffixes the new file (e.g. `receipt (1).pdf`) instead of overwriting whatever was already there.
+* **No path escapes.** The destination folder/filename the LLM proposes is sanitized and hard-checked to stay inside the folder you're monitoring — it cannot write outside that tree, even if the model's output is malformed or adversarial.
+* **Every move is logged.** A local, append-only audit log (a small SQLite database in your AFO application-data directory) records the from/to path of every file AFO moves.
+* **One-click undo.** Click the tray icon and select **"Undo Last Action"** to reverse the most recently moved file back to where it came from. This is a single-step undo (it reverses only the last move, not a full history) — see `implementation.md` T013 for details, and Phase 1+ of `architecture.md` for the planned full history/search UI.
+
+These protections cover the *filing* step. They don't yet cover everything in `state.md`'s audit — for example, there's still no dry-run/confirmation step before a file is moved, and (outside of local-model mode) file contents are sent to your chosen cloud LLM provider. See `state.md` for the full, current list of known gaps.
 
 ---
 
