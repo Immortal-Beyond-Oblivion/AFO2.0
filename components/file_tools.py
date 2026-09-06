@@ -5,7 +5,7 @@ import shutil
 from langchain.tools import tool
 from .retriever import Retriever
 from .retriever import retriever_instance
-from .events_log import log_event
+from .events_log import log_event, get_last_event
 
 # --- T010: path/filename sanitization ---
 # destination_category and new_filename below come straight from LLM tool-call
@@ -211,3 +211,97 @@ def move_and_rename_file(source_path: str, destination_category: str, new_filena
         return f"Success: File moved and renamed to {final_destination_path}"
     except Exception as e:
         return f"Error moving file: {e}"
+
+
+# --- T013: one-command undo of the most recent move ---
+# This deliberately mirrors T010/T011's safety posture rather than assuming
+# a row pulled from our own events table is automatically safe to act on:
+# from_path/to_path are historical filesystem paths, and re-checking
+# containment + collision-safety on the way back costs little and closes the
+# same class of "write somewhere unexpected" risk symmetrically in reverse.
+#
+# This is intentionally a plain function, not an @tool -- it is meant to be
+# triggered by a single explicit user action (e.g. a tray menu item), not
+# something the LLM agent decides to call on its own mid-run.
+def undo_last_action() -> str:
+    """
+    Reverse the most recent event in the `events` table (T012), if it is
+    undoable.
+
+    "Most recent" is read via events_log.get_last_event(), which orders by
+    event_id (insertion order). Only an event_type == 'moved' row is
+    undoable by this function: if the most recent event is anything else
+    (e.g. an 'undo' row from a previous call, meaning the last move was
+    already reversed), this refuses rather than guessing further back in
+    history -- this is a single-step "undo the last thing that happened",
+    not a full undo stack.
+    """
+    event = get_last_event()
+
+    if event is None:
+        return "Nothing to undo: no events have been logged yet."
+
+    if event.get("event_type") != "moved":
+        return (
+            f"Nothing to undo: the most recent event is '{event.get('event_type')}', "
+            f"not a move (it may already have been undone)."
+        )
+
+    from_path = event.get("from_path")
+    to_path = event.get("to_path")
+
+    if not from_path or not to_path:
+        return "Error: the most recent move event is missing a from_path/to_path and cannot be undone."
+
+    if not os.path.exists(to_path):
+        return (
+            f"Error: cannot undo -- the file is no longer at its moved-to location "
+            f"({to_path}); it may have been moved, renamed, or deleted since."
+        )
+
+    try:
+        # Symmetric containment check to T010's: confirm restoring the file
+        # to from_path still lands inside the same folder tree from_path
+        # already lived in (from_path itself isn't attacker-controlled here
+        # -- it's what the original move already validated as safe -- but
+        # re-checking costs nothing and keeps the guarantee explicit rather
+        # than assumed).
+        monitored_root = os.path.realpath(os.path.dirname(from_path))
+        resolved_restore = os.path.realpath(from_path)
+        try:
+            common = os.path.commonpath([resolved_restore, monitored_root])
+        except ValueError:
+            common = None
+
+        if common != monitored_root:
+            return (
+                f"Error: refused to undo -- restoring to '{resolved_restore}' would "
+                f"land outside its original folder '{monitored_root}'."
+            )
+
+        # Symmetric collision-safety to T011's: something new may already
+        # occupy from_path since the original move happened.
+        try:
+            final_restore_path = _get_collision_safe_path(from_path)
+        except RuntimeError as e:
+            return f"Error: refused to undo due to a naming collision ({e})"
+
+        os.makedirs(os.path.dirname(final_restore_path), exist_ok=True)
+        shutil.move(to_path, final_restore_path)
+
+        log_event(
+            event_type="undo",
+            from_path=to_path,
+            to_path=final_restore_path,
+            actor="user",
+            reason="undo_last_action",
+        )
+
+        if final_restore_path != from_path:
+            return (
+                f"Success: Undid last move. A file already existed at the original "
+                f"location, so the file was restored to {final_restore_path} instead."
+            )
+        return f"Success: Undid last move. File restored to {final_restore_path}"
+    except Exception as e:
+        return f"Error undoing last action: {e}"

@@ -96,3 +96,29 @@ def log_event(event_type, from_path=None, to_path=None, actor="agent",
         conn.close()
     except Exception as e:
         print(f"⚠️ Could not log event ({event_type}: {from_path} -> {to_path}) to {EVENTS_DB_PATH}: {e}")
+
+
+def get_last_event():
+    """
+    T013: Return the most recent row in the `events` table as a dict, or
+    None if the table is empty.
+
+    "Most recent" is deliberately determined by highest `event_id`
+    (insertion/autoincrement order), not `timestamp` -- event_id is
+    monotonic and immune to any clock skew or timestamp formatting
+    weirdness, whereas comparing ISO timestamp strings would be a subtly
+    riskier way to answer the same question for no real benefit.
+
+    This is read-only and safe to call at any time, including before
+    init_db()/log_event() have ever run -- _get_connection() creates the
+    table (empty) if it doesn't exist yet, so this just returns None in
+    that case rather than raising.
+    """
+    conn = _get_connection()
+    conn.row_factory = sqlite3.Row
+    try:
+        cur = conn.execute("SELECT * FROM events ORDER BY event_id DESC LIMIT 1")
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()

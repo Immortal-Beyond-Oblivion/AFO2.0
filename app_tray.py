@@ -12,6 +12,7 @@ import subprocess
 from components.config_manager import load_settings, save_settings
 from components.file_watcher import Watcher
 from components.agent_core import process_file_with_agent
+from components.file_tools import undo_last_action
 
 
 def ask_for_folder():
@@ -75,6 +76,7 @@ class AfoApp:
         image = Image.open("icon.png")
         menu = pystray.Menu(
             pystray.MenuItem('Choose Monitored Folder...', self.on_choose_folder),
+            pystray.MenuItem('Undo Last Action', self.on_undo_last_action),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem('Quit', self.on_quit)
         )
@@ -114,6 +116,23 @@ class AfoApp:
             self.start_watcher_thread()
             
             self.icon.notify(f"Now watching: {os.path.basename(new_path)}", title="AFO")
+
+    def on_undo_last_action(self, icon, item):
+        """Callback for the 'Undo Last Action' menu item (T013).
+
+        Runs undo_last_action() synchronously on the pystray callback thread
+        -- this is a single filesystem move plus one small SQLite write, not
+        a network call, so it should return quickly enough not to need a
+        background thread the way file processing does. The result string
+        (success or a specific refusal reason) is surfaced via the same
+        tray notification mechanism already used for 'Choose Monitored
+        Folder...', so the user gets immediate feedback either way instead
+        of having to check a terminal window.
+        """
+        print("Undo Last Action requested from tray menu.")
+        result = undo_last_action()
+        print(result)
+        self.icon.notify(result, title="AFO — Undo")
 
     def on_quit(self, icon, item):
         """Callback for the 'Quit' menu item."""
