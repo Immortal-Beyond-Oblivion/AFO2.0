@@ -7,6 +7,7 @@ google-generativeai
 langchain-openai  # OpenAI backend for llm/provider.py (T006)
 langchain-anthropic  # Anthropic backend for llm/provider.py (T007)
 langchain-xai  # Grok (xAI) backend for llm/provider.py (T008)
+langchain-ollama  # Local/offline model backend for llm/provider.py (T009); requires a local Ollama server
 
 # File System Monitoring
 watchdog

@@ -10,7 +10,7 @@ Before running AFO for the first time, you need to create a configuration file t
 
 AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, and **Grok (xAI)** — plus an optional **local/offline model** (e.g. via Ollama), selected via a single `active_provider` field. You only need to fill in the API key for the provider you intend to use.
 
-> **Note:** As of this writing, provider selection is wired through the config layer, but the agent pipeline itself still only executes against Google Gemini under the hood (see `implementation.md` T005–T009 for the in-progress work to make every configured provider actually usable end-to-end). If you configure a non-Google provider today, the app will still fall back to expecting a Google key until that work lands.
+> **Note:** As of `implementation.md` T009, all five providers listed above (`google`, `anthropic`, `openai`, `grok`, `local`) are fully wired end-to-end through `llm/provider.py` — whichever one you set as `active_provider` is the one the agent actually uses, no fallback to Google.
 
 ### First-Time Setup Instructions
 
@@ -56,6 +56,32 @@ AFO supports multiple LLM providers — **Google**, **Anthropic**, **OpenAI**, a
     * **`providers.local.enabled`** / **`providers.local.model`**: For a local/offline model instead of a cloud provider, set `enabled` to `true` and `model` to your local model's identifier (e.g. an Ollama tag). See the full schema reference in [`docs/config_schema.md`](docs/config_schema.md) for details.
 
     If you have an existing `settings.json` from an older version of AFO (using the old flat `google_api_key` field), you don't need to migrate it by hand — the app detects and automatically upgrades it to this new schema the first time it loads.
+
+### Using a Local / Offline Model (Ollama)
+
+If you'd rather not send file contents to any cloud provider, AFO can run entirely against a local model via [Ollama](https://ollama.com):
+
+1.  **Install Ollama** for your OS from [ollama.com/download](https://ollama.com/download) and make sure the Ollama app/service is running (it listens on `http://localhost:11434` by default — AFO's local backend is hard-coded to talk to that address only, so it never reaches out to a remote host).
+2.  **Pull a model** that supports tool-calling, e.g.:
+    ```bash
+    ollama pull llama3.1
+    ```
+3.  **Update `settings.json`**:
+    ```json
+    {
+        "active_provider": "local",
+        "providers": {
+            "local": { "enabled": true, "model": "llama3.1" }
+        }
+    }
+    ```
+    Both `enabled: true` and a matching `model` tag are required — if either is missing, AFO treats the agent as unconfigured rather than guessing.
+4.  **Install the local-model dependency** (included in `requirements.txt` as of T009):
+    ```bash
+    uv pip install -r requirements.txt
+    ```
+5.  Run AFO as usual (`python main.py`). All reasoning now happens against your local Ollama server — no API key required, and no file content leaves your machine.
+
 ---
 
 ## 🚶 Walkthrough

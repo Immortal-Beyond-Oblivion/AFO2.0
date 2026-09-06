@@ -14,11 +14,12 @@ already relies on.
 Scope for T005 was a refactor only: migrate the existing Google Gemini path
 behind this interface. T006 added the second backend - OpenAI - following
 the same shape. T007 added the third - Anthropic - again following the same
-shape. T008 (this update) adds the fourth - Grok (xAI) - same shape again.
-Only the local/offline model backend is still outstanding (T009) and still
-raises a clear NotImplementedError rather than silently returning None, so a
-user who picks it as `active_provider` today gets an honest error instead of
-a mysteriously "unconfigured" agent.
+shape. T008 added the fourth - Grok (xAI) - same shape again. T009 (this
+update) adds the fifth and final Phase-0 backend - a local/offline model via
+Ollama - which never makes a network call to any cloud provider (it only
+ever talks to a local Ollama server on localhost). With T009 done, every
+provider listed in the settings schema (docs/config_schema.md) is now wired
+up: google, anthropic, openai, grok, local.
 """
 
 # Same Gemini model name agent_core.py was already hard-coding.
@@ -40,6 +41,12 @@ ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 # else in the repo.
 GROK_MODEL = "grok-4-fast"
 
+# Default local Ollama server address for the T009 backend. Deliberately
+# hard-coded to localhost rather than read from settings, so this backend
+# can never be pointed at a remote host - the whole point of "local/offline"
+# is that it never leaves the user's machine or hits a cloud API.
+OLLAMA_BASE_URL = "http://localhost:11434"
+
 
 def get_llm(settings):
     """
@@ -47,13 +54,13 @@ def get_llm(settings):
     `active_provider` in `settings` (the dict returned by
     `components.config_manager.load_settings()`).
 
-    Returns `None` when the active provider is "google" but no API key is
-    configured — this mirrors the previous agent_core.py behavior (agent
-    stays unconfigured, no crash) rather than introducing a new failure mode.
+    Returns `None` when the active cloud provider has no API key configured,
+    or when `active_provider` is "local" but `providers.local.enabled` is
+    false or `providers.local.model` is unset — this mirrors the previous
+    agent_core.py behavior (agent stays unconfigured, no crash) rather than
+    introducing a new failure mode.
 
     Raises:
-        NotImplementedError: `active_provider` is a recognized provider that
-            isn't implemented yet (local - T009).
         ValueError: `active_provider` isn't a recognized provider name at all.
     """
     active_provider = settings.get("active_provider", "google")
@@ -121,9 +128,26 @@ def get_llm(settings):
         )
 
     if active_provider == "local":
-        raise NotImplementedError(
-            "active_provider is 'local', but the local/offline model backend "
-            "isn't implemented yet - see implementation.md T009."
+        local_settings = providers.get("local", {})
+        # Both checks matter: `enabled` is an explicit opt-in (so a stray
+        # `model` value left over from a previous experiment doesn't
+        # silently activate local mode), and `model` has to actually be set
+        # since there's no sane default Ollama tag to fall back to - unlike
+        # the cloud providers, we can't assume a specific model is pulled.
+        if not local_settings.get("enabled") or not local_settings.get("model"):
+            return None
+        # Imported lazily, same reasoning as the other branches above: don't
+        # require langchain_ollama to be installed unless this backend is
+        # actually selected.
+        from langchain_ollama import ChatOllama
+        return ChatOllama(
+            model=local_settings["model"],
+            # Hard-coded to OLLAMA_BASE_URL (localhost) rather than reading a
+            # host from settings - this is what makes "local/offline"
+            # actually guaranteed local: there is no config field that lets
+            # this backend be pointed at a remote server or cloud endpoint.
+            base_url=OLLAMA_BASE_URL,
+            temperature=0,
         )
 
     raise ValueError(
