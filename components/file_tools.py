@@ -78,6 +78,46 @@ def _sanitize_path_component(value: str, field_name: str) -> str:
     return value
 
 
+# --- T011: collision-safe destination naming ---
+# shutil.move silently overwrites an existing file at the destination path
+# with no warning (see state.md §6). Rather than ever calling shutil.move
+# against a path that already exists, we compute a non-colliding destination
+# up front by auto-suffixing " (1)", " (2)", etc. before the extension, the
+# same convention most OS file managers use for "copy" conflicts.
+_MAX_COLLISION_ATTEMPTS = 1000
+
+
+def _get_collision_safe_path(destination_path: str) -> str:
+    """
+    Given a desired destination path, return a path guaranteed not to exist
+    on disk at the moment of the check: either the original path unchanged
+    (if nothing is there yet), or the same path with a " (N)" suffix inserted
+    before the file extension, incrementing N until a free name is found.
+
+    This does not eliminate every theoretical TOCTOU race (another process
+    could create the chosen name between this check and the actual
+    shutil.move), but it closes the actual reported gap: a same-run
+    mis-classification or naming collision silently clobbering an existing
+    file. Raises RuntimeError in the extremely unlikely event no free name is
+    found within _MAX_COLLISION_ATTEMPTS tries, rather than looping forever.
+    """
+    if not os.path.exists(destination_path):
+        return destination_path
+
+    folder, filename = os.path.split(destination_path)
+    base, ext = os.path.splitext(filename)
+
+    for n in range(1, _MAX_COLLISION_ATTEMPTS + 1):
+        candidate = os.path.join(folder, f"{base} ({n}){ext}")
+        if not os.path.exists(candidate):
+            return candidate
+
+    raise RuntimeError(
+        f"Could not find a free filename for '{filename}' in '{folder}' "
+        f"after {_MAX_COLLISION_ATTEMPTS} attempts."
+    )
+
+
 @tool
 def move_and_rename_file(source_path: str, destination_category: str, new_filename: str):
     """
@@ -131,7 +171,28 @@ def move_and_rename_file(source_path: str, destination_category: str, new_filena
             retriever_instance.add_folder_to_memory(destination_category)
 
         os.makedirs(full_destination_folder, exist_ok=True)
-        shutil.move(source_path, destination_path)
-        return f"Success: File moved and renamed to {destination_path}"
+
+        # T011: never let shutil.move silently overwrite an existing file at
+        # the destination. If destination_path is already taken, resolve to
+        # a free " (N)" suffixed name instead of clobbering whatever is
+        # there. The collision check happens only after the folder exists
+        # above (so a freshly created destination folder is never mistaken
+        # for a collision) and immediately before the move, to keep the
+        # window between check and move as small as possible.
+        try:
+            final_destination_path = _get_collision_safe_path(destination_path)
+        except RuntimeError as e:
+            return f"Error: refused to move file due to a naming collision ({e})"
+
+        shutil.move(source_path, final_destination_path)
+
+        if final_destination_path != destination_path:
+            return (
+                f"Success: A file named '{new_filename}' already existed at the "
+                f"destination, so this file was moved and renamed to "
+                f"{final_destination_path} instead, to avoid overwriting the "
+                f"existing file."
+            )
+        return f"Success: File moved and renamed to {final_destination_path}"
     except Exception as e:
         return f"Error moving file: {e}"
