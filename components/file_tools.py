@@ -6,6 +6,7 @@ from langchain.tools import tool
 from .retriever import Retriever
 from .retriever import retriever_instance
 from .events_log import log_event, get_last_event
+from .knowledge_store import compute_file_id, upsert_file
 
 # --- T010: path/filename sanitization ---
 # destination_category and new_filename below come straight from LLM tool-call
@@ -200,6 +201,25 @@ def move_and_rename_file(source_path: str, destination_category: str, new_filena
             to_path=final_destination_path,
             actor="agent",
         )
+
+        # T017c: first real caller of knowledge_store's files_repo CRUD
+        # surface (T017a). Upsert a `files` row for the file at its new
+        # location so the knowledge store starts reflecting real move
+        # activity, ahead of the full watcher/backfill wiring in T020-T022.
+        # compute_file_id hashes the file's on-disk bytes, so it must run
+        # *after* shutil.move above (the file no longer exists at
+        # source_path by this point). Deliberately wrapped in its own
+        # try/except, separate from the outer function try/except: a
+        # knowledge-store write failure (e.g. a locked DB file) must never
+        # be allowed to look like -- or cause -- the move itself failing,
+        # since the move has already succeeded and been logged by the time
+        # this runs. Mirrors log_event's own "never let logging break the
+        # real action" convention from T012.
+        try:
+            file_id = compute_file_id(final_destination_path)
+            upsert_file(file_id, final_destination_path, category=destination_category)
+        except Exception as e:
+            print(f"Warning: failed to update knowledge store for {final_destination_path}: {e}")
 
         if final_destination_path != destination_path:
             return (
