@@ -5,6 +5,8 @@ import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+from .knowledge_store import get_file_by_path, upsert_file, mark_status
+
 # T020: default ignore patterns for OS/editor noise and VCS internals.
 # Matched per path-segment (see _is_ignored) via fnmatch, so ".git" ignores
 # anything anywhere inside a .git directory tree once watching is
@@ -46,9 +48,13 @@ def _is_ignored(path, ignore_patterns):
 
 class NewFileHandler(FileSystemEventHandler):
     """
-    A handler for new file events that debounces (waits for the file to
+    A handler for filesystem events that debounces (waits for a new file to
     finish being written) and filters out OS/editor noise before putting a
-    file path onto the processing queue.
+    file path onto the processing queue, and (T021) reconciles on_moved/
+    on_deleted events against the knowledge_store's `files` table so that
+    metadata already indexed for a file survives it being moved or deleted
+    outside of AFO's own move_and_rename_file tool (e.g. the user
+    reorganizing things by hand in Finder).
     """
 
     def __init__(self, queue, ignore_patterns=None):
@@ -111,6 +117,91 @@ class NewFileHandler(FileSystemEventHandler):
             print(f"📥 File stable, adding to queue: {path}")
             self.queue.put(path)
 
+    def on_moved(self, event):
+        """
+        T021: reconcile a filesystem move/rename against the knowledge
+        store's `files` table (architecture.md §2.1) instead of leaving a
+        stale row behind at the old path.
+
+        Only reconciles moves for a file already tracked in `files` (i.e.
+        get_file_by_path(src_path) finds a row). Untracked moves -- e.g.
+        AFO's own move_and_rename_file classifying a brand-new file out of
+        the watched root's top level, which never had a `files` row at its
+        pre-move location in the first place, since indexing only happens
+        at move time (T017c) or during a future backfill (T022) -- are a
+        deliberate no-op here rather than being (re-)queued as if new. That
+        keeps this task scoped to reconciliation only; T022 is what will
+        eventually make "index everything already on disk" happen for
+        files that were never routed through move_and_rename_file at all.
+
+        Deliberately does NOT change file_id: file_id is a content hash
+        (files_repo.compute_file_id), so a same-content move/rename keeps
+        the same file_id by definition -- only current_path (and the
+        filename/extension/size_bytes/modified_at/indexed_at columns
+        upsert_file derives from it) needs to change. Calling
+        upsert_file(existing_file_id, dest_path) reuses the exact same
+        UPSERT-by-file_id path T017c already relies on, which is what makes
+        this "update the row, don't create a duplicate" rather than a
+        second INSERT.
+        """
+        if event.is_directory:
+            return
+
+        src_path = event.src_path
+        dest_path = event.dest_path
+
+        # A move into an ignored/noise name (e.g. an editor swapping a real
+        # file out to a `~$`-style lock name, or into a dotfile) isn't worth
+        # reconciling -- there's nothing useful to file the row under, and
+        # if it's genuinely being deleted a following on_deleted will
+        # reconcile it properly instead.
+        if _is_ignored(dest_path, self.ignore_patterns):
+            return
+
+        try:
+            existing = get_file_by_path(src_path)
+            if existing is None:
+                # Not a file the knowledge store knows about yet -- nothing
+                # to reconcile. Most common case in practice: AFO's own
+                # move_and_rename_file moving a just-created file that never
+                # had a `files` row at its original path.
+                return
+            upsert_file(existing["file_id"], dest_path)
+            print(f"🔀 Reconciled tracked file move: {src_path} -> {dest_path}")
+        except Exception as e:
+            # Same "a knowledge-store write failure must never look like --
+            # or cause -- a real problem" convention as file_tools.py's
+            # T017c/T019 blocks: reconciliation is a best-effort secondary
+            # write path, not something that should ever crash the watcher.
+            print(f"Warning: failed to reconcile move in knowledge store ({src_path} -> {dest_path}): {e}")
+
+    def on_deleted(self, event):
+        """
+        T021: mark a tracked file's `files` row as status='deleted' (the
+        same soft-delete convention already used everywhere else in the
+        knowledge store, e.g. files_repo.mark_status / schema.py's
+        files_ad_fts trigger note) instead of leaving a row that still
+        claims to live at a path that no longer exists.
+        """
+        if event.is_directory:
+            return
+
+        path = event.src_path
+        if _is_ignored(path, self.ignore_patterns):
+            # Noise files (e.g. .DS_Store) get created and deleted
+            # constantly and were never tracked in the first place.
+            return
+
+        try:
+            existing = get_file_by_path(path)
+            if existing is None:
+                # Untracked file deleted -- nothing to reconcile.
+                return
+            mark_status(existing["file_id"], "deleted")
+            print(f"🗑️  Marked deleted in knowledge store: {path}")
+        except Exception as e:
+            print(f"Warning: failed to reconcile delete in knowledge store ({path}): {e}")
+
 
 class Watcher:
     """A class that encapsulates the watchdog observer to allow for clean start/stop."""
@@ -131,7 +222,7 @@ class Watcher:
         # recursive=False before this task).
         self.observer.schedule(self.event_handler, self.path_to_watch, recursive=True)
         self.observer.start()
-        print(f"👀 Watcher started on: {self.path_to_watch} (recursive, debounced, noise-filtered)")
+        print(f"👀 Watcher started on: {self.path_to_watch} (recursive, debounced, noise-filtered, move/delete-aware)")
 
         # The observer runs in its own thread, but this thread needs to be kept alive.
         try:
