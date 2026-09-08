@@ -7,6 +7,7 @@ from .retriever import Retriever
 from .retriever import retriever_instance
 from .events_log import log_event, get_last_event
 from .knowledge_store import compute_file_id, upsert_file
+from .content_extractor import extract_content
 
 # --- T010: path/filename sanitization ---
 # destination_category and new_filename below come straight from LLM tool-call
@@ -219,7 +220,43 @@ def move_and_rename_file(source_path: str, destination_category: str, new_filena
             file_id = compute_file_id(final_destination_path)
             upsert_file(file_id, final_destination_path, category=destination_category)
         except Exception as e:
+            file_id = None
             print(f"Warning: failed to update knowledge store for {final_destination_path}: {e}")
+
+        # T019: point the vector store at real per-file content instead of
+        # only folder-category name strings. Re-extracts content from the
+        # file at its *new* location (extract_content is idempotent and
+        # cheap to call again here; there's no plumbing today to carry the
+        # text agent_core.py already extracted pre-move through to this
+        # tool call) and, if that content came back as real text (a .txt
+        # file, or a PDF with a usable text layer), chunks and embeds it
+        # into retriever_instance's `file_content` collection under this
+        # file's content-hash file_id.
+        #
+        # Deliberately scoped to type == "text" only for this task: images
+        # and scanned/image-based PDFs (types "image"/"image_list") have no
+        # text to chunk without adding a captioning step, which is out of
+        # scope here (architecture.md §3's local-image-captioning idea is a
+        # future ingestion-pipeline task, not part of T019). Those files
+        # still get the pre-existing folder-naming-consistency signal via
+        # add_folder_to_memory above; they just don't get a real content
+        # entry in `file_content` yet.
+        #
+        # Wrapped in its own try/except, same "a secondary write-path
+        # failure must never look like the primary move failing" convention
+        # as the knowledge-store block directly above.
+        if file_id is not None:
+            try:
+                extracted = extract_content(final_destination_path)
+                if extracted and extracted.get("type") == "text":
+                    retriever_instance.index_file_content(
+                        file_id=file_id,
+                        filename=os.path.basename(final_destination_path),
+                        category=destination_category,
+                        text=extracted.get("data", ""),
+                    )
+            except Exception as e:
+                print(f"Warning: failed to index file content for {final_destination_path}: {e}")
 
         if final_destination_path != destination_path:
             return (
