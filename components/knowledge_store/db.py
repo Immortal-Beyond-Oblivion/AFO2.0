@@ -42,14 +42,29 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db():
     """
-    Create the `files` and `user_profile` tables if they don't exist yet.
-    Idempotent — safe to call on every app startup, same convention as
-    events_log.init_db(). Not yet wired into main.py's startup sequence as
-    part of T017a (nothing in the app writes to this store yet — see this
-    package's __init__.py docstring); wiring it in is left for whichever
-    subtask first has a real writer (T017b's events consolidation, or
-    T020-T022's watcher/backfill work).
+    Create the `files`, `files_fts`, and `user_profile` tables/triggers if
+    they don't exist yet. Idempotent — safe to call on every app startup,
+    same convention as events_log.init_db(). Wired into main.py's startup
+    sequence as of T017c, since move_and_rename_file is now a real writer.
+
+    T018: also backfills `files_fts` for any `files` rows that predate the
+    files_ai_fts/files_au_fts triggers (i.e. rows written by T017c before
+    this task added them) — the triggers only fire on new INSERT/UPDATE
+    activity going forward, so without this one-time catch-up, a file moved
+    in an earlier session would silently never become keyword-searchable.
+    Uses INSERT ... SELECT ... WHERE NOT IN, which is a no-op (touches zero
+    rows) once every file already has a matching files_fts row, so this is
+    cheap to run unconditionally on every call rather than needing its own
+    one-time flag.
     """
     conn = get_connection()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO files_fts (file_id, filename, category, summary, keywords)
+            SELECT file_id, filename, category, summary, keywords FROM files
+            WHERE file_id NOT IN (SELECT file_id FROM files_fts)
+            """
+        )
     conn.close()
     print(f"🗂️  Knowledge store ready at: {KNOWLEDGE_DB_PATH}")
